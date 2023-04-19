@@ -1,0 +1,438 @@
+---
+title: "Mod_St_Bio_Chp_2.Rmd"
+author: "Caroline Hernandez"
+date: "2023-04-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Statistical Modeling
+Statistical modeling starts with the data and works upwards to a model that might plausibly explain the data, a step known statistical **inference**.
+Parametric models are statistical models with only a few unknown parameters.
+
+## 2.1 Goals for this chapter
+ No notes for this section.
+ 
+## 2.2 The difference between statistical and probabilistic models
+No notes for this section.
+
+## 2.3 A simple example of statistical modeling
+### Start with the data
+Discrete count data can be modeled by simple probability distributions including binomial, multinomial, or Poisson distributions. 
+For continuous measurements, the normal distribution is a usually good model.
+```{r}
+e99 = e100[-which.max(e100)]
+```
+
+## Goodness-of-fit: visual evaluation
+To determine which distribution to use, you must first visualize the data using graphical and quantitative goodness-of-fit plots. 
+For continuous data, we use a histogram but for discrete data, we plot a barplot of frequencies.
+```{r}
+barplot(table(e99), space = 0.8, col = "chartreuse4")
+```
+Rootogram diagram is another visual goodness-of-fit diagram. 
+If the boxes align exactly with the horizontal axis, the counts match their theoretical values. 
+```{r}
+library("vcd")
+gf1 = goodfit( e99, "poisson")
+rootogram(gf1, xlab = "", rect_gp = gpar(fill = "chartreuse4"))
+```
+Based on the rootogram, the Poisson model seems to fit the model reasonably well but this is after we have already removed the outlier.
+
+### Question 2.1
+Use `rpois` with $\lambda = 0.05$ to generate 100 Poisson distributed numbers and draw their rootogram.
+
+```{r}
+simp = rpois(100, lambda = 0.05)
+gf2 = goodfit(simp, "poisson")
+rootogram(gf2, xlab = "")
+```
+The Poisson model is determined by a single parameter, the Poisson mean $\lambda$. We can usually guess that data follows a Poisson distribution but need to estimate the Poisson parameter, $\lambda$ for our data.
+The Poisson mean is the mean of the Poisson distribution and is estimated by the sample mean.
+Commonly, we estimate $\lambda$ using the **maximum likelihood estimator (MLE)**.
+```{r}
+table(e100)
+```
+
+Trying different values for the Poisson mean to determine which one best fits our data.
+```{r}
+table(rpois(100, 3))
+```
+
+Calculate the probability of seeing the data if the value of the Poisson parameter is $m$.
+$ P(58 \times 0, 34 \times 1, 7 \times 2, \text{ one } 7 | \text{ data are Poisson}(m)) = P(0)^{58} \times P(1)^{34} \times P(2)^7 \times P(7)^1$$
+```{r}
+prod(dpois(c(0, 1, 2, 7), lambda = 3) ^ (c(58, 34, 7, 1)))
+```
+
+### Question 2.3
+```{r}
+prod(dpois(c(0, 1, 2, 7), lambda = 0) ^ (c(58, 34, 7, 1)))
+
+prod(dpois(c(0, 1, 2, 7), lambda = 1) ^ (c(58, 34, 7, 1)))
+
+prod(dpois(c(0, 1, 2, 7), lambda = 2) ^ (c(58, 34, 7, 1)))
+
+prod(dpois(c(0, 1, 2, 7), lambda = 0.4) ^ (c(58, 34, 7, 1)))
+```
+
+The probability, as generated above, is the **likelihood function** of $\lambda$, given the data written as:
+$$ L(\lambda, x = (k_1, k_2, k_3, \ldots)) = \prod_{i=1}^{100}f(k_i$$)
+$L$ stands for the liklihood and $f(k) = e^{-\lambda} \lambda^k / k!$ is the Poisson probability.
+
+```{r}
+loglikelihood  =  function(lambda, data = e100) {
+  sum(log(dpois(data, lambda)))
+}
+```
+
+```{r}
+lambdas = seq(0.05, 0.95, length = 100)
+loglik = vapply(lambdas, loglikelihood, numeric(1))
+plot(lambdas, loglik, type = "l", col = "red", ylab = "", lwd = 2,
+     xlab = expression(lambda))
+m0 = mean(e100)
+abline(v = m0, col = "blue", lwd = 2)
+abline(h = loglikelihood(m0), col = "purple", lwd = 2)
+m0
+```
+In the figure above, the red curve is the log-likelihood function. The vertical line shows the value of $m$, the mean, and the horizontal line is the log-likelihood of $m$. 
+
+A shotcut for the work done above is the function `goodfit`
+
+```{r}
+gf  =  goodfit(e100, "poisson")
+names(gf)
+```
+
+```{r}
+gf$par
+```
+
+Here, `par` contains the value(s) of the fitted parameter(s) for the distribution studied. In our case, we have a single number which estimates $\lambda$.
+
+## Task
+Redo the modeling we did in Chapter 1 with m, aka $\lambda$, of 0.55 instead of 0.5.
+
+## 2.3.1 Classical statistics for classical data
+In a classical statistical testing framework, we typically look at one model, which we call the null model. The null model represents an "uninteresting baseline" which we use as a null hypothesis, which we then test. 
+
+Linear regression can be used when we are interested in seeing how a count-based variable depends on a continuous covariate (such as temperature or nutrient concentration).
+$$y=ax+b+e$$
+$y$ is the response variable.
+$a$ and $b$ are covariates we need to estimate.
+$e$ represents the residuals whose probability model is a normal distribution but whose variance we need to estimate.
+
+**Generalized linear models** are used when we have count data. We can use the same type of regression model but the distribution of the residuals must be non-normal.
+
+## 2.4 Binomial distributions and maximum likelihood
+In a binomial distribution there are two parameters: the number of trials $n$, which is usually known, and the probability $p$ of seeing a 1 in a trial, which is usually unknown. 
+
+### 2.4.1 An example
+$n = 120 \text { males tested for red-green colorblindness}$
+$0 = \text{ male is not colorblind}$
+$1 = \text{ male is colorblind}$
+
+```{r} 
+cb  =  c(rep(0, 110), rep(1, 10))
+table(cb)
+```
+
+```{r}
+mean(cb)
+```
+
+```{r}
+probs  =  seq(0, 0.3, by = 0.005)
+likelihood = dbinom(sum(cb), prob = probs, size = length(cb))
+plot(probs, likelihood, pch = 16, xlab = "probability of success",
+       ylab = "likelihood", cex=0.6)
+probs[which.max(likelihood)] 
+```
+ 
+ ### 2.4.2 Likelihood for the binomial distribution
+```{r}
+loglikelihood = function(p, n = 300, y = 40) {
+  log(choose(n, y)) + y * log(p) + (n - y) * log(1 - p)
+}
+```
+
+```{r}
+p_seq = seq(0, 1, by = 0.001)
+plot(p_seq, loglikelihood(p_seq), xlab = "p", ylab = "log f(p|y)", type = "l")
+```
+
+## 2.5 More boxes: multinomial data
+### 2.5.1 DNA count modeling: base pairs
+### 2.5.2 Nucleotide bias
+Let's read in data from one DNA strand containing genes of *S. aureus* in a fasta file format.
+```{r}
+library("Biostrings")
+staph = readDNAStringSet("staphsequence.ffn.txt", "fasta")
+```
+
+```{r}
+staph[1]
+```
+
+```{r}
+letterFrequency(staph[[1]], letters = "ACGT", OR = 0)
+```
+
+```{r}
+letterFrq = vapply(staph, letterFrequency, FUN.VALUE = numeric(4),
+         letters = "ACGT", OR = 0)
+colnames(letterFrq) = paste0("gene", seq(along = staph))
+tab10 = letterFrq[, 1:10]
+computeProportions = function(x) { x/sum(x) }
+prop10 = apply(tab10, 2, computeProportions)
+round(prop10, digits = 2)
+```
+
+```{r}
+p0 = rowMeans(prop10)
+p0
+```
+Here, p0 is a vector of multinomial probabilities for all ten genes.
+We will use a Monte Carlo simulation to test whether these departures in observes vs. expected letter frequencies are within a plausible range.
+```{r}
+cs = colSums(tab10)
+cs
+```
+
+```{r}
+#not sure what this part meant
+expectedtab10 = outer(p0, cs, FUN = "*")
+round(expectedtab10)
+```
+
+```{r}
+randomtab10 = sapply(cs, function(s) { rmultinom(1, s, p0) } )
+all(colSums(randomtab10) == cs)
+```
+
+```{r}
+stat = function(obsvd, exptd) {
+   sum((obsvd - exptd)^2 / exptd)
+}
+B = 1000
+simulstat = replicate(B, {
+  randomtab10 = sapply(cs, function(s) { rmultinom(1, s, p0) })
+  stat(randomtab10, expectedtab10)
+})
+S1 = stat(tab10, expectedtab10)
+sum(simulstat >= S1)
+```
+
+```{r}
+hist(simulstat, col = "lavender", breaks = seq(0, 75, length.out=50))
+abline(v = S1, col = "red")
+abline(v = quantile(simulstat, probs = c(0.95, 0.99)),
+       col = c("darkgreen", "blue"), lty = 2)
+```
+
+## 2.6 The $x^2$ distribution
+Quantile-quantile (QQ) plot. When comparing two distributions, whether from two different samples or from one sample versus a theoretical model, just looking at histograms is not informative enough.
+
+### 2.6.1 Intermezzo: quantiles and the quantile-quantile plot
+### Question 2.10
+```{r}
+qs = ppoints(100)
+quantile(simulstat, qs)
+quantile(qchisq(qs, df = 30), qs)
+```
+
+```{r}
+qqplot(qchisq(ppoints(B), df = 30), simulstat, main = "",
+  xlab = expression(chi[nu==30]^2), asp = 1, cex = 0.5, pch = 16)
+abline(a = 0, b = 1, col = "red")
+```
+We can determine from this plot that `simulstat` is well described by a $x_{30}^2$ distribution, er can now compute our p-value, which is the probability that under the null hypothesis, we observe values as high as S1 = 70.1. 
+```{r}
+1 - pchisq(S1, df = 30)
+```
+Since the p-value is incredibly small, we reject the null hypothesis.
+
+## 2.7 Chargaff's Rule
+Tetranucleotide hypothesis: Whether nucleotides occur at equal frequencies. $p_A = p_C = p_G = p_T$
+```{r}
+load("ChargaffTable.RData")
+ChargaffTable
+```
+Chargaff postulated a pattern called "base pairing" where the amount of adenine in the DNA matched the amount of thymine and the amount of glycine matched the amount of cytosine present in DNA.
+Based on Chargaff's rule, we define a statistic $(p_C - p_G)^2 + (p_A - p_T)^2$
+If we assume that the nucleotides are 'exchangeable', such that the probabilities observed in each row are in no particular order, and that As and Ts and Cs and Gs have no special relationship, we do the following:
+```{r}
+statChf = function(x){
+  sum((x[, "C"] - x[, "G"])^2 + (x[, "A"] - x[, "T"])^2)
+}
+chfstat = statChf(ChargaffTable)
+permstat = replicate(100000, {
+     permuted = t(apply(ChargaffTable, 1, sample))
+     colnames(permuted) = colnames(ChargaffTable)
+     statChf(permuted)
+})
+pChf = mean(permstat <= chfstat)
+pChf
+```
+
+```{r}
+hist(permstat, breaks = 100, main = "", col = "lavender")
+abline(v = chfstat, lwd = 2, col = "red")
+```
+
+### 2.7.1 Two categorical variables
+**Contingency table**: cross-tabulated counts for every combination.
+```{r}
+HairEyeColor[,, "Female"]
+```
+
+```{r}
+dim(HairEyeColor)
+str(HairEyeColor)
+# HairEyeColor contains data that describes the distribution of hair and eye color and sex in 592 statistics students.
+```
+
+### Color blindness and sex
+```{r}
+load("Deuteranopia.RData")
+Deuteranopia
+```
+
+To test if there is a relationship between sex and color blindness, we use the `chisq.test` function and postulate a null model with two independent binomials, one for sex and one for color blindness.
+```{r}
+chisq.test(Deuteranopia)
+```
+
+### 2.7.2 A special multinomial: Hardy-Weinberg equilibrium
+- Multinomial with 3 possible levels created by combining alleles M and N. 
+- Overall frequency of allele M in the population is p
+- Overall frequency of allele N is $q=1-p$
+The **Hardy-Weinberg equilibrium (HWE)** looks at the relationship between $p$ and $q$ if there is independence in the frequency of both alleles in a genotype. 
+
+```{r}
+library("HardyWeinberg")
+data("Mourant")
+Mourant[214:216,]
+```
+
+```{r}
+nMM = Mourant$MM[216]
+nMN = Mourant$MN[216]
+nNN = Mourant$NN[216]
+loglik = function(p, q = 1 - p) {
+  2 * nMM * log(p) + nMN * log(2*p*q) + 2 * nNN * log(q)
+}
+xv = seq(0.01, 0.99, by = 0.01)
+yv = loglik(xv)
+plot(x = xv, y = yv, type = "l", lwd = 2,
+     xlab = "p", ylab = "log-likelihood")
+imax = which.max(yv)
+abline(v = xv[imax], h = yv[imax], lwd = 1.5, col = "blue")
+abline(h = yv[imax], lwd = 1.5, col = "purple")
+```
+The maximum likelihood estimate for probabilities in a multinomial distribution is also obtained using observed frequencies (like the binomial case) however, the estimates account for the relationships between more than 2 probabilities. 
+
+You can compute the estimated probabilities using the `af` function.
+```{r}
+phat  =  af(c(nMM, nMN, nNN))
+phat
+```
+
+
+```{r}
+pMM   =  phat^2
+qhat  =  1 - phat
+```
+
+```{r}
+pHW = c(MM = phat^2, MN = 2*phat*qhat, NN = qhat^2)
+sum(c(nMM, nMN, nNN)) * pHW
+```
+These values are much lower than our observed values. A simulation or a $x^2$ test could be used to test whether we can reject the Hardy-Weinberg model.
+
+A de Finetti plot, as shown below, represents the three genotypes as points and the frequencies as weights on the corner of the triangle.
+```{r}
+pops = c(1, 69, 128, 148, 192)
+genotypeFrequencies = as.matrix(Mourant[, c("MM", "MN", "NN")])
+HWTernaryPlot(genotypeFrequencies[pops, ],
+        markerlab = Mourant$Country[pops],
+        alpha = 0.0001, curvecols = c("red", rep("purple", 4)),
+        mcex = 0.75, vertex.cex = 1)
+```
+
+```{r}
+#Try to figure this out later.
+HWTernaryPlot(genotypeFrequencies[-pops, ], 
+              newframe = FALSE, alpha = 0.0001, cex = 0.5)
+```
+**Qu*estion 2.17** Divide all total frequencies by 50, keeping the same propostions for each of the genotypes, and recreate the ternary plot.
+- What happens to the points?
+- What happens to the confidence regions and why?
+```{r}
+newgf = round(genotypeFrequencies / 50)
+HWTernaryPlot(newgf[pops, ],
+              markerlab = Mourant$Country[pops],
+              curvecols = c("red", rep("purple", 4)),
+              alpha = 0.0001, mcex = 0.75, vertex.cex = 1)
+```
+
+### 2.7.3 Concatenating several multinomials: sequence motifs and logos
+**Position weight matrix** (PWM), or **position-specific scoring matrix** (PSSM), provides the multinomial probabilities at every position and is encoded graphically by the sequence logo.
+```{r}
+library("seqLogo")
+load("kozak.RData")
+kozak
+```
+```{r}
+pwm = makePWM(kozak)
+seqLogo(pwm, ic.scale = FALSE)
+```
+
+## 2.8 Modeling sequential dependencies: Markov chains
+The Markov assumption is said to have a finite "memory" so we only need to look back a finite amount of time to make predictions.
+
+## 2.9 Bayesian Thinking
+The Bayesian paradigm is a practical approach where prior and posterior distributions to model our knowledge before and after collecting some data and making an observation. It can be iterated ad infinitum.
+This can also be used for hypothesis testing where we take into consideration our prior knowledge of the form of a prior probability and after we see the data, we have posterior probability which may be lower or higher than the prior probability depending on the data.
+
+### 2.9.1 Example: haplotype frequencies
+A *haplotype* is a collection of alleles that are spatially adjacent on a chromosome and are usually inherited together (and thus genetically linked).
+
+## 2.9.2 Simulation study of the Bayesian paradigm for the binomial distribution
+- The Bayesian approach allows us to see it as a draw from a statistical distribution. 
+```{r}
+rp = rbeta(100000, 50, 350)
+y = vapply(rp, 
+           function(x) rbinom(1, prob = x, size = 300), 
+           integer(1))
+hist(y, breaks = 50, col = "orange", main = "", xlab = "")
+```
+Below, we verify that we could have gotten the same results as those shown above by using R's vectorisation capabilities and writing `rbinom(length(rp), rp, size = 300)`.
+```{r}
+set.seed(0xbebe)
+y1 = vapply(rp, 
+            function(x) rbinom(1, prob = x, size = 300), 
+            integer(1))
+set.seed(0xbebe)
+y2 = rbinom(length(rp), rp, size = 300)
+stopifnot(identical(y1, y2))
+```
+
+### 2.9.4 Histogram of all the $p$s such that $Y=40$: the posterior distribution.
+The code below will compute the posterior distribution of $p$ by conditioning on those outcomes where $Y$ was 40. We compare the posterior distribution to the theoretical posterior, `densPostTheory`.
+```{r}
+pPostEmp = rp[ y == 40 ]
+hist(pPostEmp, breaks = 40, col = "chartreuse4", main = "",
+  probability = TRUE, xlab = "posterior p")
+
+p_seq = seq(0, 1, by = 0.001)
+densPostTheory = dbeta(p_seq, 50 + 40, 350 + 260)
+lines(p_seq, densPostTheory, type = "l", lwd = 3)
+```
+
+
+
