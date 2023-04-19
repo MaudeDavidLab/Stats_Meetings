@@ -1,0 +1,323 @@
+---
+title: "Mod_Stats_Mod_Bio_Chp_1"
+author: "Caroline Hernandez"
+date: "2023-04-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1.2 A real example:
+If we want to deduce how often 3 mutations will occur under a Poisson(5) model, we can do the following the generate the probability of seeing $x=3$ events.Here, we have determined the value of the *rate parameter* of the Poisson distribution to be $\lambda=5$.
+```{r}
+dpois(x = 3, lambda = 5)
+```
+So, the likelihood of seeing 3 events if approximately 0.14, 14% or 1 in 7.
+
+If we want to know the probabilities for values 0:12, we can put it into the `dpois` function as a vector using a colon.
+```{r}
+0:12
+```
+
+```{r}
+dpois(x = 0:12, lambda = 5)
+```
+
+```{r}
+barplot(dpois(0:12, 5), names.arg = 0:12, col = "red")
+```
+The Poisson probability of seeing the value $x$ is $e^{-\lambda}\lambda^x/x!$.
+The Poisson distribution is a useful model for investigating rare events, including mutations.
+One can also use Bernoulli, binomial, and multinomial distributions to construct probability models for discrete events.
+
+# 1.3 Using discrete probability models:
+Point mutations are considered binary events (they either do or do not happen).
+In this case "yes" and "no" are the two levels for the categorical variable of a point mutation occurring. 
+Categorical variables may have more than two levels, however, as is the case in the genotypes of a diploid organism, which has three levels (AA, Aa, and aa).
+The number of variables can be small, as is the case with a binary event, or very large, as is the case when we are looking at the number of microbial taxa present in a sample or 3-mer codons. 
+To tally the number of occurrences of a particular level of a categorical variable, we refer to them as factors and can use the `table` function to do count them.
+```{r}
+genotype = c("AA","AO","BB","AO","OO","AO","AA","BO","BO",
+             "AO","BB","AO","BO","AB","OO","AB","BB","AO","AO")
+table(genotype)
+```
+When we create factors, R automatically detects the levels and we can access them at anytime using the `levels` function.
+
+```{r}
+genotypeF = factor(genotype)
+levels(genotypeF)
+```
+
+```{r}
+table(genotypeF)
+```
+
+# Question 1.1
+What if you want to create a factor that has some levels not yet in your data?
+A: We could reassign levels(genotypeF) to include the additional level. In this case, we could ass the additional level as a character string.
+Maybe something like:
+```{r}
+# c("AA", "AB", "AO", "BB", "BO", "OO", "CC") <- levels(genotypeF)
+```
+If the levels are `exchangeable`, the order of the data doesn't matter.
+
+#1.3.1 Bernoulli trials
+The following simulates a sequence of 15 fair coin tosses with an equal 0.5 probability of getting a "success".
+```{r}
+rbinom(15, prob = 0.5, size = 1)
+# first parameter, 15, is the number of trials we want to observe.
+# second parameter, 0.5, is the probability of success.
+# Third parameter, size = 1, signifies that each individual trial includes just one coin tosses for a total of 15 coin tosses.
+```
+You'll notice that if you repeat this function, the output differs. This is because these results are being randomly generated and a seed has not been set to ensure consistency.
+
+```{r}
+rbinom(12, prob=2/3, size=1)
+```
+
+# 1.3.2 Binomial success counts
+If the order of the balls being thrown doesn't matter, then we can just do a single trial with 12 balls instead of 12 trials of 1 ball. If we do this, our output will give us the total number of balls that went into the right-hand side (aka a successful throw which has a probability of 2/3). You'll notice that this output is also not fixed. If the trials are independent of one another, their results are said to be exchangeable.
+```{r}
+rbinom(1, prob=2/3, size=12)
+```
+
+```{r}
+set.seed(235569515) #Here, set.seed fixes the output.
+rbinom(1, prob = 0.3, size = 15)
+```
+
+To get the probability mass distribution, carry out the following.
+```{r}
+probabilities = dbinom(0:15, prob=0.3, size=15)
+round(probabilities, 2)
+```
+
+```{r}
+barplot(probabilities, names.arg = 0:15, col="red")
+```
+For $X$ distributes as a binomial distribution with parametes $(n, p)$, written $X\sim B(n,p)$, the probability of seeing $X=k$ successes is:
+$$P(X=k) = {n \choose k} p^{k}(1-p)^{n-k}$$
+where: ${n \choose k}$ is a shorthand notation for $\frac{n!}{(n-k)!k!}$
+
+# Question 1.4
+What is the output of the formula for $k-3$, $p=2/3$, $n=4$?
+```{r}
+(factorial(4))/(factorial(4-3)*factorial(3)) * ((2/3)^3) * (1-(2/3))^(4-3)
+```
+
+# 1.3.3 Poisson distributions
+When $p$ is small and the number of trials $n$ is large, the binomial dritribution $B(n,p)$ can be approximated by the Poisson distribution with a rate parameter of $\lambda=np$
+
+# Question 1.5
+What is the probability mass distribution of observing 0:12 mutations in a genome of $n=10^4$ nucleotides, when the probability of $p=5\times10^{-4}$ per nucleotide? Is it similar when modeled by the binomial $B(n,p)$ distribution and by the Poisson$(\lambda=np)$ distribution?
+
+A: A Poisson ditribution only relies on the product $np$. The mathematical formula for computing Poisson probabilities is:
+$$P(X=k)= \frac{\lambda^k e^{-\lambda}}{k!}$$
+If $\lambda=5$, we can compute $P(X=3)$:
+```{r}
+(5^3 * exp(-5)) / factorial(3)
+```
+This matches what we computed earlier using `dpois`.
+
+Now, we will simulate a mutation process along 10,000 positions with a mutation rate of $5\times10^{-4}$ and count the number of mutations. Repeat this many times and plot the distribution with the barplot function.
+```{r}
+rbinom(1, prob = 5e-4, size = 10000)
+```
+```{r}
+simulations = rbinom(n = 300000, prob = 5e-4, size = 10000)
+barplot(table(simulations), col = "lavender")
+```
+
+# 1.3.4 A generative model for epitope detection:
+## ELISA error with known parameters
+Task: Verify by simulation that the sum of 50 independent Bernoulli variables with $p=0.01$ is - to good enough approximation - the same as a Poisson(0.5) random variable.
+```{r}
+#n = 50
+#p = 0.01
+# Decided to compare the likelihood of getting one success out of 50 independent trials for both the poisson and binomial distributions and determined that the probabilities were very similar. 
+
+factorial(50) / (factorial(50-1)* factorial(1)) * 0.01^1 * (1-0.01)^(50-1)
+
+dpois(1, 0.5)
+
+#lambda = n*p = 0.5, so that makes sense, but not sure how to input this as code.
+```
+
+# Results from the 50 assays:
+Shown below, Figure 1.8 demonstrates the ELISA data for all 50 patients tallied at each of the 100 positions. We would expect, that if there aren't any allergic reactions but the false positive rate is about 1 in 100, that after tallying the results of the 50 patients, that at any given position, the sum of the 50 observed variables would have a Poisson(0.5) distribution, like in Figure 1.7 (the lavender barplot). However, when we look at the actual data from file *e100.RData*, we see that some patients had values as large as 7, which we would not necessarily expect if no epitope was present. 
+```{r}
+setwd("~/Documents/Modern Stats for Modern Bio Data")
+load("e100.RData")
+barplot(e100, ylim = c(0, 7), width = 0.7, xlim = c(-0.5, 100.5),
+  names.arg = seq(along = e100), col = "darkolivegreen")
+```
+
+If we want to determine the probability of seeing a number as big as, or larger, than 7 when considering a Poisson(0.5) random variable, we would carry out the following:
+$$P(X \geq 7) = \sum_{k=7}^{\infty} P(X=k)$$
+This would be the same as $1-P(X \leq 6)$, which we can calculate using a function called `ppois`.
+```{r}
+1-ppois(6, 0.5)
+```
+
+```{r}
+ppois(6, 0.5, lower.tail=FALSE)
+```
+
+Task: Check the manual page of `ppois` for the meaning of the `lower.tail` argument.
+A: The manual specifies that the lower.tail logical, set to TRUE (default) signifies that the probabilities ar $P[X \leq x]$. If set to FALSE, then $P[X>x]$. Since we wanted to determine the probability that $P[x>7]$, we set `lower.tail = FALSE`.
+
+The probability here is represented by epsilon, $\epsilon$, when we assume there are no epitope reactions. 
+$$\epsilon = P(X \geq 7) = 1 = P(X \leq 6) \simeq 10^{-6}$$
+# Extreme value analysis for the Poisson distribution
+The calculation shown above is not correct? Why? 
+A: What we want to know is not the likelihood of seeing Poisson(0.5) as large as 7, but rather the chances that the maximum of 100 Poisson(0.5) trials is as large as 7.
+To do this, we will use **extreme value** analysis. 
+
+# Computing probabilities by simulation
+Since theoretical probability calculations can get quite complicated, we will be using the **Monte Carlo** method, which is a computer simulation based on a generative model that finds the probabilities of the events we're interested in. 
+The code below generates 100,000 instances of picking the maximum from 100 Poisson distributed numbers.
+```{r}
+maxes = replicate(100000, {
+  max(rpois(100, 0.5))
+})
+table(maxes)
+```
+
+```{r}
+mean(maxes >= 7)
+```
+
+Clarification needed: 
+The textbook states "We already seee one of the potential limitations of Monte Carlo simulations: the 'granularity' of the simulation result is determined by the inverse of the number of simulations (100000) and so will be around 10^{5}. Any estimated probability cannot be more precise than this granularity, and indeed the precision of our estimate will be a few multiples of that." I'm not sure what they mean exactly. 
+
+Up to this point, we have conducted probability or generative modeling where we know all the parameters and can deduce probability in a top-down fashion. However, in the real world, we rarely know everything. We may not know the distribution of our data for example, and thus, we use statistical modeling, where we first fit our data.
+This will be expanded upon in chapter 2.
+
+#Multinomial distributions: the case of DNA
+## More than two outcomes
+The sum of the probabilities of all possible outcomes is 1.
+
+Clarification or concern: Not sure how to complete the task specified here, which says to "Experiment with the random number generator that generates all possible numbers between 0 and 1 through the function called runif. Use it to generate a random variable with 4 levels (A, C, G, T) where $pA = \frac{1}{8}$, $pC = \frac{3}{8}$ $pG = \frac{3}{8}$ and $pT = \frac{1/8}$.
+```{r}
+#runif(, min = 0, max = 1, lower.tail = TRUE, log.p = FALSE)
+
+```
+
+Q: Suppose we have four boxes that are equally likely. Using the formula, what is the probability of observing 4 in the first box, 2 in the second box, and none in the two other boxes?
+A: To solve this, we will use the following formula:
+$P(x_1, x_2, \ldots , x_m | p_1, \ldots , p_m) = \frac{n!}{\Pi x_1!} \Pi {p_i}^{x_1}$
+
+# Question 1.7
+Suppose we have four boxes that are equally likely. Using the formula, what is the probability of observing 4 in the first box, 2 in the second box, and none in the other two boxes?
+
+Solution:
+$$P(4,2,0,0) = \frac{6!}{4!2!0!0!} \frac{1}{4^6}$$
+Remember that $0!=1$. So, 
+$$P(4,2,0,0) = \frac{6 \times 5 \times 4 \times 3 \times 2 \times 1}{(4 \times 3 \times 2 \times 1) (2 \times 1) (1) (1)} \frac{1}{4^6} = \frac{15}{4^6} \simeq 0.0037 $$
+
+To do this in R:
+```{r}
+dmultinom(c(4, 2, 0, 0), prob = rep(1/4, 4))
+```
+
+```{r}
+pvec = rep(1/4, 4) #produces a vector of 4 ideentical probabilities of 1/4.
+t(rmultinom(1, prob = pvec, size = 8))
+```
+
+# Question 1.8
+Try the code using the `t()` function, what does `t` stand for?
+```{r}
+rmultinom(1, prob = pvec, size = 8)
+```
+The `t` changes the orientation of a matrix. In R, the 't' stands for 'transpose' and the `t()` function carries out a matrix transposition.
+
+```{r}
+rmultinom(1, prob = pvec, size = 8)
+rmultinom(8, prob = pvec, size = 1)
+```
+If we were to think of this in the context of balls going into one of 4 boxes with equal probability, then the first option would have us throw 8 balls in one trial and the order doesn't matter. So, the output on the table is simply showing the total number of balls, out of the 8 balls, that went into each box.
+For the second function, we are throwing a single ball during a trial and conducting 8 trials. Here, the table is showing us all the boxes for each trial and demonstrating where the ball landed for each trial. 
+
+# 1.4.1 Simulating for power
+Power: the probability of detecting something if it *is* there, also called the **true positive rate**.
+Typically we, as experimentalist should aim for a power of $\geq80\%$ when planning experiments. 
+
+If we look at a sequence with a length of $n=20$, we can see if the distribution of nucleotides is fair or not.
+We will generate 1000 simulations from our null hypothesis using the `rmultinom` function. 
+```{r}
+obsunder0 = rmultinom(1000, prob = pvec, size = 20) #observations under 0
+dim(obsunder0)
+```
+Let's take a look at the first 11 trials.
+```{r}
+obsunder0[, 1:11]
+```
+
+# Creating a test
+ SS = Sum of Squares
+ $$SS = stat = \sum_i \frac{(E_i - x_i)^2}{E_i}$$
+ How do the first three columns of the generated data differ from what we expect?
+```{r}
+expected0 = pvec * 20
+sum((obsunder0[, 1] - expected0)^2 / expected0)
+```
+ 
+```{r}
+ sum((obsunder0[, 2] - expected0)^2 / expected0)
+```
+
+```{r}
+sum((obsunder0[, 3] - expected0)^2 / expected0)
+```
+
+```{r}
+stat = function(obsvd, exptd = 20 * pvec) {
+  sum((obsvd - exptd)^2 /exptd)
+}
+stat(obsunder0[, 1])
+```
+
+If we wanted to measure the SS of all 1000 instances, we can do the following and store the values in a vector called `S0`.
+```{r}
+S0 = apply(obsunder0, 2, stat) 
+#obsunder is an array or matrix
+#2 = margin, signifying that the function will be applied over the columns.
+# stat is the function we want to apply
+summary(S0)
+```
+
+```{r}
+hist(S0, breaks = 25, col = "lavender", min = "")
+```
+
+```{r}
+q95 = quantile(S0, probs = 0.95)
+q95
+```
+From this, we determine that 5% of `S0` is larger than 7.6.
+
+# Determining out test's power
+Here, we will compute the probability of rejecting by simulation and generate 1000 simulated instances from an alternative process, parameterized by `pvecA`.
+```{r}
+pvecA = c(3/8, 1/4, 1/4, 1/8)
+observed = rmultinom(1000, prob = pvecA, size = 20)
+dim(observed)
+```
+
+```{r}
+observed[, 1:7]
+```
+
+```{r}
+apply(observed, 1, mean)
+```
+
+```{r}
+expectedA = pvecA * 20
+expectedA
+```
+
+For the sake of time, I did not complete the exercises at the end. I saved them until after I had read both chapters to ensure I got through the material.
